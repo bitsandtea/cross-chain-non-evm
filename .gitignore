@@ -4,3 +4,5 @@ emulator-account.pkey
 imports
 flow/.env
 flow/.flow
+docs/
+notes.md
