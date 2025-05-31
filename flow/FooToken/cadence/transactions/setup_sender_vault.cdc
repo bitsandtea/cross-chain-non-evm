@@ -9,15 +9,12 @@ transaction {
             // Create and save a new empty vault
             signer.storage.save(<-FooToken.createEmptyVault(vaultType: Type<@FooToken.Vault>()), to: FooToken.VaultStoragePath)
 
-            let vaultCap = signer.capabilities.storage.issue<&FooToken.Vault>(
-            FooToken.VaultStoragePath
-        )
-        signer.capabilities.publish(vaultCap, at: FooToken.VaultPublicPath)
-
-            // Issue and Publish Receiver capability
-            let receiverCap = signer.capabilities.storage.issue<&FooToken.Vault>(/storage/fooTokenVault)
-            signer.capabilities.publish(receiverCap, at: /public/fooTokenReceiver)
-
+    
+    
         }
+
+        let providerReceiverCap = signer.capabilities.storage.issue<&{FungibleToken.Provider, FungibleToken.Receiver}>(FooToken.VaultStoragePath)
+        // signer.capabilities.unpublish(FooToken.VaultPublicPath)
+        signer.capabilities.publish(providerReceiverCap, at: FooToken.VaultPublicPath)
     }
-} 
+}

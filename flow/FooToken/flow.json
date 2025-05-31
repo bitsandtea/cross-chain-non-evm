@@ -13,6 +13,12 @@
         "emulator": "f8d6e0586b0a20c7",
         "testnet": "432050232f9a49e7"
       }
+    },
+    "MinimalHTLCv2": {
+      "source": "cadence/contracts/FungibleTokenHTLC_Simple.cdc",
+      "aliases": {
+        "testnet": "432050232f9a49e7"
+      }
     }
   },
   "dependencies": {
@@ -119,7 +125,7 @@
       "emulator-account": ["FungibleTokenHTLC", "FooToken"]
     },
     "testnet": {
-      "testnet-account": ["FungibleTokenHTLC", "FooToken"]
+      "testnet-account": ["MinimalHTLCv2"]
     }
   }
 }

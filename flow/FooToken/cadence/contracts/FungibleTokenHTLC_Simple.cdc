@@ -1,13 +1,18 @@
 // Import the Crypto contract for hashing algorithms.
 // Crypto is a built-in contract and can usually be imported by name.
 import Crypto
-
+import "FungibleToken"
+import "FooToken"
 // --- Contract Definition ---
-access(all) contract MinimalHTLC {
+access(all) contract MinimalHTLCv2 {
 
+    access(all) var fungibleTokenVault: @FooToken.Vault
     // --- Data Structures ---
     // Struct to hold all data for a single HTLC.
     // In Cadence, structs are copied when passed around or assigned.
+
+
+
     access(all) struct HTLCData {
         access(all) let id: String
         access(all) let senderAddress: Address
@@ -17,6 +22,7 @@ access(all) contract MinimalHTLC {
         access(all) let hashlock: [UInt8]   // The SHA3-256 hash of the secret.
         access(all) let timelock: UFix64    // Unix timestamp after which the HTLC can be refunded.
         access(all) var status: String      // "locked", "unlocked", "refunded"
+        
 
         init(
             id: String,
@@ -25,7 +31,7 @@ access(all) contract MinimalHTLC {
             tokenSymbol: String,
             amount: UFix64,
             hashlock: [UInt8],
-            timelock: UFix64
+            timelock: UFix64,
         ) {
             self.id = id
             self.senderAddress = senderAddress
@@ -35,6 +41,7 @@ access(all) contract MinimalHTLC {
             self.hashlock = hashlock
             self.timelock = timelock
             self.status = "locked" // Initial status when created
+            
         }
 
         access(all) fun setUnlocked() {
@@ -46,11 +53,24 @@ access(all) contract MinimalHTLC {
         }
     }
 
+    // Struct to hold the result of the lock function
+    access(all) resource LockResult {
+        access(all) let htlcID: String
+        access(all) var returnedVault: @{FungibleToken.Vault}
+
+        init(htlcID: String, returnedVault: @{FungibleToken.Vault}) {
+            self.htlcID = htlcID
+            self.returnedVault <- returnedVault
+        }
+    }
+
     // --- Contract State ---
     // Dictionary to store all HTLCs, mapping ID to the HTLCData struct.
     access(self) var htlcs: {String: HTLCData}
     // Counter to generate unique IDs for new HTLCs.
     access(self) var nextHTLCIDCounter: UInt64
+
+    access(all) event HTLCLocked(htlcID: String)
 
     // --- Public Functions ---
 
@@ -60,10 +80,11 @@ access(all) contract MinimalHTLC {
         senderAddress: Address,
         receiverAddress: Address,
         tokenSymbol: String,
+        vault: @{FungibleToken.Vault},
         amount: UFix64,
         hashlock: [UInt8], // The pre-computed SHA3-256 hash of the secret.
         timelockTimestamp: UFix64 // Unix timestamp for when refund becomes possible.
-    ): String {
+    ): @LockResult {
         pre {
             amount > 0.0: "Amount must be positive."
             hashlock.length > 0: "Hashlock (hashed secret) cannot be empty."
@@ -71,8 +92,9 @@ access(all) contract MinimalHTLC {
         }
 
         // Generate a unique ID for the HTLC.
-        let htlcID = "mhtlc-".concat(self.nextHTLCIDCounter.toString())
+        let htlcID = "htlc-".concat(self.nextHTLCIDCounter.toString()).concat("-").concat(getCurrentBlock().timestamp.toString())
         self.nextHTLCIDCounter = self.nextHTLCIDCounter + 1
+
 
         // Create the new HTLC data struct.
         let newHTLC = HTLCData(
@@ -88,12 +110,16 @@ access(all) contract MinimalHTLC {
         // Store the HTLC data in the contract's dictionary.
         self.htlcs[htlcID] = newHTLC
 
-        log("MinimalHTLC: Lock created with ID: ".concat(htlcID))
-        return htlcID
+        log("MinimalHTLCv2: Lock created with ID: ".concat(htlcID))
+        self.fungibleTokenVault.deposit(from: <- vault.withdraw(amount: amount))
+
+        emit HTLCLocked(htlcID: htlcID)
+
+        return <- create LockResult(htlcID: htlcID, returnedVault: <- vault)
     }
 
     // "Unlocks" an HTLC if the correct secret is provided and conditions are met.
-    access(all) fun unlock(htlcID: String, secret: String, callerAddress: Address): Bool {
+    access(all) fun unlock(htlcID: String, secret: String, callerAddress: Address): @FooToken.Vault? {
         // Attempt to retrieve and unwrap the HTLC data.
         if var htlc = self.htlcs[htlcID] {
             // HTLC exists, proceed with checks.
@@ -101,20 +127,20 @@ access(all) contract MinimalHTLC {
 
             // Check if the caller is the designated receiver.
             if callerAddress != htlc.receiverAddress {
-                log("MinimalHTLC: Unlock attempt by non-receiver. HTLC ID: ".concat(htlcID))
-                return false
+                log("MinimalHTLCv2: Unlock attempt by non-receiver. HTLC ID: ".concat(htlcID))
+                return nil
             }
 
             // Check if the HTLC is currently in a "locked" state.
             if htlc.status != "locked" {
-                log("MinimalHTLC: Unlock attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
-                return false
+                log("MinimalHTLCv2: Unlock attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
+                return nil
             }
 
             // Check if the timelock for refund has expired. If so, unlock is not allowed.
             if getCurrentBlock().timestamp >= htlc.timelock {
-                log("MinimalHTLC: Unlock attempt after timelock expired. HTLC ID: ".concat(htlcID))
-                return false
+                log("MinimalHTLCv2: Unlock attempt after timelock expired. HTLC ID: ".concat(htlcID))
+                return nil
             }
 
             // Verify the provided secret by hashing it and comparing with the stored hashlock.
@@ -122,21 +148,25 @@ access(all) contract MinimalHTLC {
             let computedHash = Crypto.hash(secretBytes, algorithm: HashAlgorithm.SHA3_256)
 
             if computedHash != htlc.hashlock {
-                log("MinimalHTLC: Invalid secret provided for HTLC unlock. ID: ".concat(htlcID))
-                return false
+                log("MinimalHTLCv2: Invalid secret provided for HTLC unlock. ID: ".concat(htlcID))
+                return nil
             }
 
-            // If all checks pass, update the status of the HTLC copy.
+            // If all checks pass, retrieve the amount and withdraw tokens.
+            let amountToUnlock = htlc.amount
+            let unlockedTokens <- self.fungibleTokenVault.withdraw(amount: amountToUnlock)
+
+            // Update the status of the HTLC copy.
             htlc.setUnlocked()
             // Assign the modified copy back to the dictionary to persist the change.
             self.htlcs[htlcID] = htlc
 
-            log("MinimalHTLC: Unlock successful for HTLC ID: ".concat(htlcID))
-            return true
+            log("MinimalHTLCv2: Unlock successful for HTLC ID: ".concat(htlcID).concat(", tokens returned."))
+            return <- unlockedTokens
 
         } else {
             // HTLC not found
-            panic("MinimalHTLC: Unlock failed. HTLC not found with ID: ".concat(htlcID))
+            panic("MinimalHTLCv2: Unlock failed. HTLC not found with ID: ".concat(htlcID))
         }
     }
 
@@ -149,19 +179,19 @@ access(all) contract MinimalHTLC {
 
             // Check if the caller is the original sender.
             if callerAddress != htlc.senderAddress {
-                log("MinimalHTLC: Refund attempt by non-sender. HTLC ID: ".concat(htlcID))
+                log("MinimalHTLCv2: Refund attempt by non-sender. HTLC ID: ".concat(htlcID))
                 return false
             }
 
             // Check if the HTLC is currently in a "locked" state.
             if htlc.status != "locked" {
-                log("MinimalHTLC: Refund attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
+                log("MinimalHTLCv2: Refund attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
                 return false
             }
 
             // Check if the timelock has actually expired.
             if getCurrentBlock().timestamp < htlc.timelock {
-                log("MinimalHTLC: Refund attempt before timelock expired. HTLC ID: ".concat(htlcID))
+                log("MinimalHTLCv2: Refund attempt before timelock expired. HTLC ID: ".concat(htlcID))
                 return false
             }
 
@@ -170,11 +200,11 @@ access(all) contract MinimalHTLC {
             // Assign the modified copy back to the dictionary.
             self.htlcs[htlcID] = htlc
 
-            log("MinimalHTLC: Refund successful for HTLC ID: ".concat(htlcID))
+            log("MinimalHTLCv2: Refund successful for HTLC ID: ".concat(htlcID))
             return true
         } else {
             // HTLC not found
-            panic("MinimalHTLC: Refund failed. HTLC not found with ID: ".concat(htlcID))
+            panic("MinimalHTLCv2: Refund failed. HTLC not found with ID: ".concat(htlcID))
         }
     }
 
@@ -188,6 +218,7 @@ access(all) contract MinimalHTLC {
     init() {
         self.htlcs = {} // Initialize as an empty dictionary.
         self.nextHTLCIDCounter = 0
-        log("MinimalHTLC contract initialized successfully.")
+        self.fungibleTokenVault <- FooToken.createEmptyVault(vaultType: Type<@FooToken.Vault>())
+        log("MinimalHTLCv2 contract initialized successfully.")
     }
 } 
