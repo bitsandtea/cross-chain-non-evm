@@ -8,16 +8,22 @@
       "source": "cadence/contracts/FooToken.cdc",
       "aliases": {
 <<<<<<< HEAD
+<<<<<<< HEAD
         "emulator": "f8d6e0586b0a20c7",
         "testnet": "432050232f9a49e7"
 =======
         "emulator": "0xf8d6e0586b0a20c7"
 >>>>>>> 710374f (trying to test)
+=======
+        "emulator": "f8d6e0586b0a20c7",
+        "testnet": "432050232f9a49e7"
+>>>>>>> 13261a2 (normal scripts)
       }
     },
     "FungibleTokenHTLC": {
       "source": "cadence/contracts/FungibleTokenHTLC.cdc",
       "aliases": {
+<<<<<<< HEAD
 <<<<<<< HEAD
         "emulator": "f8d6e0586b0a20c7",
         "testnet": "432050232f9a49e7"
@@ -30,6 +36,10 @@
 =======
         "emulator": "0xf8d6e0586b0a20c7"
 >>>>>>> 710374f (trying to test)
+=======
+        "emulator": "f8d6e0586b0a20c7",
+        "testnet": "432050232f9a49e7"
+>>>>>>> 13261a2 (normal scripts)
       }
     }
   },
@@ -44,6 +54,9 @@
       }
     },
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 13261a2 (normal scripts)
     "Crypto": {
       "source": "mainnet://e467b9dd11fa00df.Crypto",
       "hash": "610692c2092bd29d8f49aefc10b6e8ff3d4b3909331fece98f6966fbdcb4cdd4",
@@ -53,8 +66,11 @@
         "testnet": "8c5303eaa26202d6"
       }
     },
+<<<<<<< HEAD
 =======
 >>>>>>> 710374f (trying to test)
+=======
+>>>>>>> 13261a2 (normal scripts)
     "FungibleToken": {
       "source": "mainnet://f233dcee88fe0abe.FungibleToken",
       "hash": "23c1159cf99b2b039b6b868d782d57ae39b8d784045d81597f100a4782f0285b",
@@ -110,10 +126,14 @@
   "accounts": {
     "FooToken": {
 <<<<<<< HEAD
+<<<<<<< HEAD
       "address": "432050232f9a49e7",
 =======
       "address": "0xf8d6e0586b0a20c7",
 >>>>>>> 710374f (trying to test)
+=======
+      "address": "432050232f9a49e7",
+>>>>>>> 13261a2 (normal scripts)
       "key": {
         "type": "file",
         "location": "footoken.pkey"
@@ -126,6 +146,9 @@
         "location": "emulator-account.pkey"
       }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 13261a2 (normal scripts)
     },
     "testnet-account": {
       "address": "432050232f9a49e7",
@@ -138,17 +161,26 @@
     "testnet-receiver": {
       "address": "0x5e5e07897a1b3daf",
       "key": "45e98953a1cc1081b57a624d124368714f8161b043e42dcc3d1f54055a37b92e"
+<<<<<<< HEAD
 =======
 >>>>>>> 710374f (trying to test)
+=======
+>>>>>>> 13261a2 (normal scripts)
     }
   },
   "deployments": {
     "emulator": {
       "emulator-account": ["FungibleTokenHTLC", "FooToken"]
 <<<<<<< HEAD
+<<<<<<< HEAD
     },
     "testnet": {
       "testnet-account": ["MinimalHTLCv2"]
+=======
+    },
+    "testnet": {
+      "testnet-account": ["FungibleTokenHTLC", "FooToken"]
+>>>>>>> 13261a2 (normal scripts)
     }
   }
 }
