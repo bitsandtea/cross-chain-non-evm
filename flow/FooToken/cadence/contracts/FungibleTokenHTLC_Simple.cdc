@@ -1,6 +1,3 @@
-import "FungibleToken"
-import "FooToken"
-
 // Import the Crypto contract for hashing algorithms.
 // Crypto is a built-in contract and can usually be imported by name.
 import Crypto
@@ -38,6 +35,14 @@ access(all) contract MinimalHTLC {
             self.hashlock = hashlock
             self.timelock = timelock
             self.status = "locked" // Initial status when created
+        }
+
+        access(all) fun setUnlocked() {
+            self.status = "unlocked"
+        }
+
+        access(all) fun setRefunded() {
+            self.status = "refunded"
         }
     }
 
@@ -89,80 +94,88 @@ access(all) contract MinimalHTLC {
 
     // "Unlocks" an HTLC if the correct secret is provided and conditions are met.
     access(all) fun unlock(htlcID: String, secret: String, callerAddress: Address): Bool {
-        // Retrieve the HTLC data.
-        // `self.htlcs[htlcID]` returns an optional. If it's nil, `guard let` fails.
-        // If it exists, `htlc` becomes a *copy* of the struct.
-        guard var htlc = self.htlcs[htlcID] else {
+        // Attempt to retrieve and unwrap the HTLC data.
+        if var htlc = self.htlcs[htlcID] {
+            // HTLC exists, proceed with checks.
+            // `htlc` is a mutable copy here.
+
+            // Check if the caller is the designated receiver.
+            if callerAddress != htlc.receiverAddress {
+                log("MinimalHTLC: Unlock attempt by non-receiver. HTLC ID: ".concat(htlcID))
+                return false
+            }
+
+            // Check if the HTLC is currently in a "locked" state.
+            if htlc.status != "locked" {
+                log("MinimalHTLC: Unlock attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
+                return false
+            }
+
+            // Check if the timelock for refund has expired. If so, unlock is not allowed.
+            if getCurrentBlock().timestamp >= htlc.timelock {
+                log("MinimalHTLC: Unlock attempt after timelock expired. HTLC ID: ".concat(htlcID))
+                return false
+            }
+
+            // Verify the provided secret by hashing it and comparing with the stored hashlock.
+            let secretBytes = secret.utf8
+            let computedHash = Crypto.hash(secretBytes, algorithm: HashAlgorithm.SHA3_256)
+
+            if computedHash != htlc.hashlock {
+                log("MinimalHTLC: Invalid secret provided for HTLC unlock. ID: ".concat(htlcID))
+                return false
+            }
+
+            // If all checks pass, update the status of the HTLC copy.
+            htlc.setUnlocked()
+            // Assign the modified copy back to the dictionary to persist the change.
+            self.htlcs[htlcID] = htlc
+
+            log("MinimalHTLC: Unlock successful for HTLC ID: ".concat(htlcID))
+            return true
+
+        } else {
+            // HTLC not found
             panic("MinimalHTLC: Unlock failed. HTLC not found with ID: ".concat(htlcID))
         }
-
-        // Check if the caller is the designated receiver.
-        if callerAddress != htlc.receiverAddress {
-            log("MinimalHTLC: Unlock attempt by non-receiver. HTLC ID: ".concat(htlcID))
-            return false
-        }
-
-        // Check if the HTLC is currently in a "locked" state.
-        if htlc.status != "locked" {
-            log("MinimalHTLC: Unlock attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
-            return false
-        }
-
-        // Check if the timelock for refund has expired. If so, unlock is not allowed.
-        if getCurrentBlock().timestamp >= htlc.timelock {
-            log("MinimalHTLC: Unlock attempt after timelock expired. HTLC ID: ".concat(htlcID))
-            return false
-        }
-
-        // Verify the provided secret by hashing it and comparing with the stored hashlock.
-        let secretBytes = secret.utf8
-        let computedHash = Crypto.hash(secretBytes, algorithm: HashAlgorithm.SHA3_256)
-
-        if computedHash != htlc.hashlock {
-            log("MinimalHTLC: Invalid secret provided for HTLC unlock. ID: ".concat(htlcID))
-            return false
-        }
-
-        // If all checks pass, update the status of the HTLC copy.
-        htlc.status = "unlocked"
-        // Assign the modified copy back to the dictionary to persist the change.
-        self.htlcs[htlcID] = htlc
-
-        log("MinimalHTLC: Unlock successful for HTLC ID: ".concat(htlcID))
-        return true
     }
 
     // "Refunds" an HTLC to the sender if the timelock has expired.
     access(all) fun refund(htlcID: String, callerAddress: Address): Bool {
-        guard var htlc = self.htlcs[htlcID] else {
+        // Attempt to retrieve and unwrap the HTLC data.
+        if var htlc = self.htlcs[htlcID] {
+            // HTLC exists, proceed with checks.
+            // `htlc` is a mutable copy here.
+
+            // Check if the caller is the original sender.
+            if callerAddress != htlc.senderAddress {
+                log("MinimalHTLC: Refund attempt by non-sender. HTLC ID: ".concat(htlcID))
+                return false
+            }
+
+            // Check if the HTLC is currently in a "locked" state.
+            if htlc.status != "locked" {
+                log("MinimalHTLC: Refund attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
+                return false
+            }
+
+            // Check if the timelock has actually expired.
+            if getCurrentBlock().timestamp < htlc.timelock {
+                log("MinimalHTLC: Refund attempt before timelock expired. HTLC ID: ".concat(htlcID))
+                return false
+            }
+
+            // Update the status of the HTLC copy.
+            htlc.setRefunded()
+            // Assign the modified copy back to the dictionary.
+            self.htlcs[htlcID] = htlc
+
+            log("MinimalHTLC: Refund successful for HTLC ID: ".concat(htlcID))
+            return true
+        } else {
+            // HTLC not found
             panic("MinimalHTLC: Refund failed. HTLC not found with ID: ".concat(htlcID))
         }
-
-        // Check if the caller is the original sender.
-        if callerAddress != htlc.senderAddress {
-            log("MinimalHTLC: Refund attempt by non-sender. HTLC ID: ".concat(htlcID))
-            return false
-        }
-
-        // Check if the HTLC is currently in a "locked" state.
-        if htlc.status != "locked" {
-            log("MinimalHTLC: Refund attempt on non-locked HTLC. ID: ".concat(htlcID).concat(", Status: ").concat(htlc.status))
-            return false
-        }
-
-        // Check if the timelock has actually expired.
-        if getCurrentBlock().timestamp < htlc.timelock {
-            log("MinimalHTLC: Refund attempt before timelock expired. HTLC ID: ".concat(htlcID))
-            return false
-        }
-
-        // Update the status of the HTLC copy.
-        htlc.status = "refunded"
-        // Assign the modified copy back to the dictionary.
-        self.htlcs[htlcID] = htlc
-
-        log("MinimalHTLC: Refund successful for HTLC ID: ".concat(htlcID))
-        return true
     }
 
     // Read-only function to get the details of a specific HTLC.
