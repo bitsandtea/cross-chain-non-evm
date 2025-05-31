@@ -25,14 +25,24 @@ async function main() {
   );
 
   // Example timelock periods (in seconds from deployment)
-  const SRC_WITHDRAWAL = 1 * 60 * 60; // 1 hour
-  const SRC_PUBLIC_WITHDRAWAL = 2 * 60 * 60; // 2 hours
-  const SRC_CANCELLATION = 24 * 60 * 60; // 24 hours
-  const SRC_PUBLIC_CANCELLATION = 48 * 60 * 60; // 48 hours
+  // These are short for demonstration purposes.
+  // --- Source Chain Timelocks (Escrow funded by Maker) ---
+  // SRC_WITHDRAWAL: Time window for the Taker to withdraw funds from the source escrow using the secret.
+  const SRC_WITHDRAWAL = 1 * 60; // 1 minute
+  // SRC_PUBLIC_WITHDRAWAL: Extended window for withdrawal from source escrow, potentially by other authorized parties or publicly.
+  const SRC_PUBLIC_WITHDRAWAL = 2 * 60; // 2 minutes
+  // SRC_CANCELLATION: Time after which the Maker can cancel the source escrow and reclaim funds if the Taker hasn't withdrawn.
+  const SRC_CANCELLATION = 3 * 60; // 3 minutes
+  // SRC_PUBLIC_CANCELLATION: Longer period after which anyone can trigger cancellation of the source escrow if unresolved, returning funds to Maker.
+  const SRC_PUBLIC_CANCELLATION = 4 * 60; // 4 minutes
 
-  const DST_WITHDRAWAL = 30 * 60; // 30 minutes
-  const DST_PUBLIC_WITHDRAWAL = 1 * 60 * 60; // 1 hour
-  const DST_CANCELLATION = 12 * 60 * 60; // 12 hours
+  // --- Destination Chain Timelocks (Escrow funded by Taker) ---
+  // DST_WITHDRAWAL: Time window for the Maker to withdraw funds from the destination escrow using the secret (revealed by Taker's source withdrawal).
+  const DST_WITHDRAWAL = 45; // 45 seconds
+  // DST_PUBLIC_WITHDRAWAL: Extended window for withdrawal from destination escrow by the Maker.
+  const DST_PUBLIC_WITHDRAWAL = 1 * 90; // 1.5 minutes
+  // DST_CANCELLATION: Time after which the Taker can cancel the destination escrow and reclaim funds if the Maker hasn't withdrawn.
+  const DST_CANCELLATION = 2 * 60 + 30; // 2.5 minutes
 
   console.log("\n=== Example HTLC Usage ===");
 

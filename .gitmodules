@@ -1,3 +1,0 @@
-[submodule "lib/solidity-utils"]
-	path = lib/solidity-utils
-	url = https://github.com/1inch/solidity-utils
