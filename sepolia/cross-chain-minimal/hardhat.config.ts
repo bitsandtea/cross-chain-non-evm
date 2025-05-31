@@ -22,18 +22,8 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: {
-      polygonAmoy: process.env.POLYGONSCAN_API || "",
+      sepolia: process.env.ETHERSCAN_API || "",
     },
-    customChains: [
-      {
-        network: "polygonAmoy",
-        chainId: 80002,
-        urls: {
-          apiURL: "https://api-amoy.polygonscan.com/api",
-          browserURL: "https://amoy.polygonscan.com/",
-        },
-      },
-    ],
   },
 };
 
