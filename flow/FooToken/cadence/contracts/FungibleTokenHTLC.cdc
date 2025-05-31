@@ -1,4 +1,5 @@
 import "FungibleToken"
+import "FooToken"
 
 // Import the Crypto contract for hashing algorithms.
 // Crypto is a built-in contract and can usually be imported by name.
@@ -184,6 +185,20 @@ access(all) contract FungibleTokenHTLC {
         access(all) fun getHTLCDetails(htlcID: String): {String: AnyStruct}?
     }
 
+access(all) struct ArtPiece {
+    access(all) let id: UInt64
+    access(all) let name: String
+    access(all) let artLink: String
+    access(all) let hoursWorkedOn: UInt64
+
+    init(id: UInt64, name: String, artLink: String, hoursWorkedOn: UInt64) {
+        self.id = id
+        self.name = name
+        self.artLink = artLink
+        self.hoursWorkedOn = hoursWorkedOn
+    }
+}
+
     // --- HTLCManager Resource ---
     // Manages all HTLCs within this contract. An instance of this resource
     // will be stored in the contract deployer's account.
@@ -193,11 +208,52 @@ access(all) contract FungibleTokenHTLC {
         // Counter to generate unique IDs for new HTLCs.
         access(self) var nextHTLCIDCounter: UInt64
 
+        access(self) var fungibleTokenVault: @{FungibleToken.Vault}
+
+
+
+
+        access(self) var lockers: {UInt64: ArtPiece}
+
         init() {
             self.htlcs <- {}
             self.nextHTLCIDCounter = 0
+            self.fungibleTokenVault <- FooToken.createEmptyVault(vaultType: Type<@{FungibleToken.Vault}>())
             log("HTLCManager initialized.")
         }
+
+
+        access(all) fun lockToken(
+            receiverAddress: Address,
+            tokenContractAddress: Address,
+            tokenContractName: String,
+            vault: @{FungibleToken.Vault},
+            amount: UFix64,
+            hashlock: [UInt8],
+            timelockTimestamp: UFix64
+        ): @{FungibleToken.Vault} {
+            pre {
+                amount > 0.0: "HTLC amount must be positive."
+            }
+
+            self.fungibleTokenVault.deposit(from: <- vault.withdraw(amount: amount))
+
+            return <- vault
+        }
+
+        access(all) fun unlockToken(
+            vault: @{FungibleToken.Vault},
+            amount: UFix64
+        ): @{FungibleToken.Vault} {
+            pre {
+                amount > 0.0: "HTLC amount must be positive."
+            }  
+
+            self.fungibleTokenVault.deposit(from: <- vault.withdraw(amount: amount))
+
+            return <- vault
+        }
+
 
         // Creates a new HTLC.
         access(all) fun newHTLC(
