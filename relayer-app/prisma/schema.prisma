@@ -14,10 +14,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum SwapDirection {
+  EVM_TO_FLOW
+  FLOW_TO_EVM
+}
+
+enum SwapState {
+  PENDING_INITIATION
+  AWAITING_INITIATOR_LOCK
+  INITIATOR_LOCKED
+  AWAITING_COUNTERPARTY_LOCK
+  COUNTERPARTY_LOCKED
+  AWAITING_INITIATOR_WITHDRAWAL // User who locked first and knows secret withdraws from counterparty's lock
+  INITIATOR_WITHDREW_AND_REVEALED_SECRET
+  AWAITING_COUNTERPARTY_WITHDRAWAL // Counterparty uses revealed secret to withdraw
+  COMPLETED
+  REFUND_INITIATED_BY_INITIATOR
+  REFUND_INITIATED_BY_COUNTERPARTY
+  REFUNDED_INITIATOR
+  REFUNDED_COUNTERPARTY
+  FAILED
+}
+
 model Swap {
   id                                 String    @id @default(cuid())
   swapId                             String    @unique
-  state                              String
+  direction                          SwapDirection
+  state                              SwapState @default(PENDING_INITIATION)
   initiatorChain                     String
   initiatorAddress                   String
   initiatorToken                     String
