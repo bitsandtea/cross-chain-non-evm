@@ -2,11 +2,7 @@
 # flow
 emulator-account.pkey
 imports
-flow/.env
-<<<<<<< HEAD
+
 flow/.flow
 docs/
 notes.md
-=======
-flow/.flow
->>>>>>> b231090 (env vars)
