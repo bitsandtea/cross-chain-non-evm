@@ -3,67 +3,62 @@ import { NextResponse } from "next/server";
 import ERC20Abi from "../../../../abis/ERC20Abi.json";
 import MinimalEscrowDstAbi from "../../../../abis/MinimalEscrowDst.json";
 import MinimalEscrowFactoryAbi from "../../../../abis/MinimalEscrowFactory.json";
+import { callRelayerApi } from "../../../../lib/relayerApi";
 
 // Helper function to make API calls to our relayer
-async function callRelayerApi(endpoint: string, method: string, body?: object) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const response = await fetch(`${baseUrl}/api/relayer${endpoint}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) {
-    const errorData = await response.text();
-    throw new Error(
-      `Relayer API call failed with status ${response.status}: ${errorData}`
-    );
-  }
-  return response.json();
-}
+// async function callRelayerApi(endpoint: string, method: string, body?: object) {
+//   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+//   const response = await fetch(`${baseUrl}/api/relayer${endpoint}`, {
+//     method,
+//     headers: { "Content-Type": "application/json" },
+//     body: body ? JSON.stringify(body) : undefined,
+//   });
+//   if (!response.ok) {
+//     const errorData = await response.text();
+//     throw new Error(
+//       `Relayer API call failed with status ${response.status}: ${errorData}`
+//     );
+//   }
+//   return response.json();
+// }
 
 // EVM Configuration
 const EVM_RPC_URL = process.env.EVM_RPC_URL;
-const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY;
+const EVM_RECEIVER_KEY = process.env.EVM_RECEIVER_KEY;
 const MINIMAL_ESCROW_FACTORY_ADDRESS =
   process.env.MINIMAL_ESCROW_FACTORY_ADDRESS;
 
 const provider = EVM_RPC_URL ? new ethers.JsonRpcProvider(EVM_RPC_URL) : null;
 const signer =
-  EVM_PRIVATE_KEY && provider
-    ? new ethers.Wallet(EVM_PRIVATE_KEY, provider)
+  EVM_RECEIVER_KEY && provider
+    ? new ethers.Wallet(EVM_RECEIVER_KEY, provider)
     : null;
 
 // Timelock constants - Should align with contract and cross-chain logic
-const FLOW_WITHDRAWAL_TIMELOCK_OFFSET = process.env
-  .FLOW_WITHDRAWAL_TIMELOCK_OFFSET
-  ? parseInt(process.env.FLOW_WITHDRAWAL_TIMELOCK_OFFSET)
-  : 100; // 100 seconds
-const FLOW_CANCELLATION_TIMELOCK_OFFSET = process.env
-  .FLOW_CANCELLATION_TIMELOCK_OFFSET
-  ? parseInt(process.env.FLOW_CANCELLATION_TIMELOCK_OFFSET)
-  : 100; // 100 seconds
 const EVM_DST_WITHDRAWAL_TIMELOCK_OFFSET = process.env
   .EVM_DST_WITHDRAWAL_TIMELOCK_OFFSET
   ? parseInt(process.env.EVM_DST_WITHDRAWAL_TIMELOCK_OFFSET)
-  : 100; // 100 seconds
+  : 5; // Reduced from 100 to 5 seconds for simulation
 const EVM_DST_CANCELLATION_TIMELOCK_OFFSET = process.env
   .EVM_DST_CANCELLATION_TIMELOCK_OFFSET
   ? parseInt(process.env.EVM_DST_CANCELLATION_TIMELOCK_OFFSET)
-  : 60; // 60 seconds
+  : 10; // Adjusted to be > new withdrawal offset (e.g. 2 * 5s)
 const EVM_SAFETY_DEPOSIT = process.env.EVM_SAFETY_DEPOSIT || "0.0001"; // In ETH
 
-// Helper to pack timelocks
-function packTimelocks(
-  srcWithdrawalOffset: number,
-  srcCancellationOffset: number,
-  dstWithdrawalOffset: number,
-  dstCancellationOffset: number
+// Helper to pack EVM Destination timelocks
+function packEvmDstTimelocks(
+  dstWithdrawalOffset: number, // EVM_DST_WITHDRAWAL_TIMELOCK_OFFSET
+  // dstPublicWithdrawalOffset: number, // If you have one and it's part of your MinimalEscrowDst stages
+  dstCancellationOffset: number // EVM_DST_CANCELLATION_TIMELOCK_OFFSET
 ): bigint {
   let packed = BigInt(0);
-  packed |= BigInt(srcWithdrawalOffset);
-  packed |= BigInt(srcCancellationOffset) << BigInt(64);
-  packed |= BigInt(dstWithdrawalOffset) << BigInt(128);
-  packed |= BigInt(dstCancellationOffset) << BigInt(192);
+  // These are relative offsets from deployment time on the EVM chain
+  // Refer to TimelocksLib.sol Stage enum for correct bit positions
+  // enum Stage { ..., DstWithdrawal = 4, DstPublicWithdrawal = 5, DstCancellation = 6 }
+  packed |= BigInt(dstWithdrawalOffset) << (BigInt(4) * BigInt(32)); // Stage.DstWithdrawal
+  // If MinimalEscrowDst uses DstPublicWithdrawal, pack it here at stage 5.
+  // packed |= BigInt(dstPublicWithdrawalOffset) << (BigInt(5) * BigInt(32)); // Stage.DstPublicWithdrawal
+  packed |= BigInt(dstCancellationOffset) << (BigInt(6) * BigInt(32)); // Stage.DstCancellation
   return packed;
 }
 
@@ -186,32 +181,79 @@ export async function POST(request: Request) {
     const safetyDepositWei = ethers.parseEther(EVM_SAFETY_DEPOSIT);
     const evmAmountWei = ethers.parseEther(swapDetails.counterpartyAmount);
 
-    const erc20 = new ethers.Contract(
-      swapDetails.counterpartyToken,
-      ERC20Abi,
-      signer
-    );
+    // Determine if it's a native ETH swap for the main amount
+    const isNativeEthSwap =
+      swapDetails.counterpartyToken === ethers.ZeroAddress;
 
-    const balance = await erc20.balanceOf(signer.address);
-    console.log("balance", balance);
-    if (balance < evmAmountWei) {
-      throw new Error(
-        `Insufficient balance for ${swapDetails.counterpartyToken}. Balance: ${balance}, Required: ${evmAmountWei}`
+    if (!isNativeEthSwap) {
+      const erc20 = new ethers.Contract(
+        swapDetails.counterpartyToken,
+        ERC20Abi,
+        signer
       );
+
+      const balance = await erc20.balanceOf(signer.address);
+      console.log(
+        "ERC20 Balance for",
+        swapDetails.counterpartyToken,
+        ":",
+        ethers.formatUnits(balance, await erc20.decimals())
+      );
+      if (balance < evmAmountWei) {
+        throw new Error(
+          `Insufficient ERC20 balance for ${
+            swapDetails.counterpartyToken
+          }. Balance: ${ethers.formatUnits(
+            balance,
+            await erc20.decimals()
+          )}, Required: ${ethers.formatEther(evmAmountWei)}`
+        );
+      }
+
+      const allowance = await erc20.allowance(
+        signer.address,
+        MINIMAL_ESCROW_FACTORY_ADDRESS
+      );
+      console.log(
+        "ERC20 Allowance for factory:",
+        ethers.formatUnits(allowance, await erc20.decimals())
+      );
+      if (allowance < evmAmountWei) {
+        simulationLog.push(
+          `Approving factory to spend ${ethers.formatEther(evmAmountWei)} of ${
+            swapDetails.counterpartyToken
+          }`
+        );
+        const approveTx = await erc20.approve(
+          MINIMAL_ESCROW_FACTORY_ADDRESS,
+          evmAmountWei
+        );
+        await approveTx.wait();
+        simulationLog.push(
+          `Approval transaction successful: ${approveTx.hash}`
+        );
+      }
+    } else {
+      // For native ETH swap, check signer's ETH balance for amount + safetyDeposit
+      const totalNativeAmountRequired = evmAmountWei + safetyDepositWei;
+      const signerEthBalance = await provider.getBalance(signer.address);
+      console.log("Signer ETH Balance:", ethers.formatEther(signerEthBalance));
+      console.log(
+        "Total Native ETH Required (amount + safety):",
+        ethers.formatEther(totalNativeAmountRequired)
+      );
+      if (signerEthBalance < totalNativeAmountRequired) {
+        throw new Error(
+          `Insufficient ETH balance for native swap. Balance: ${ethers.formatEther(
+            signerEthBalance
+          )}, Required (amount + safety): ${ethers.formatEther(
+            totalNativeAmountRequired
+          )}`
+        );
+      }
     }
 
-    const allowance = await erc20.allowance(
-      signer.address,
-      MINIMAL_ESCROW_FACTORY_ADDRESS
-    );
-    console.log("allowance", allowance);
-    if (allowance < evmAmountWei) {
-      await erc20.approve(MINIMAL_ESCROW_FACTORY_ADDRESS, evmAmountWei);
-    }
-
-    const packedRelTimelocks = packTimelocks(
-      FLOW_WITHDRAWAL_TIMELOCK_OFFSET,
-      FLOW_CANCELLATION_TIMELOCK_OFFSET,
+    const dstPackedTimelocks = packEvmDstTimelocks(
       EVM_DST_WITHDRAWAL_TIMELOCK_OFFSET,
       EVM_DST_CANCELLATION_TIMELOCK_OFFSET
     );
@@ -224,61 +266,19 @@ export async function POST(request: Request) {
       token: swapDetails.counterpartyToken, // e.g. ZeroAddress for native ETH
       amount: evmAmountWei,
       safetyDeposit: safetyDepositWei,
-      timelocks: packedRelTimelocks,
+      timelocks: dstPackedTimelocks, // Use the correctly packed Dst timelocks
     };
+
+    if (
+      immutablesDst.maker.toLowerCase() === immutablesDst.taker.toLowerCase()
+    ) {
+      const errorMsg = `Invalid DstEscrow parameters: Maker address (${immutablesDst.maker}) and Taker address (${immutablesDst.taker}) cannot be the same. This likely indicates an issue with the swap initiation data where counterpartyAddress and initiatorReceivingAddressOnOtherChain are identical.`;
+      simulationLog.push(`ERROR: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
 
     let evmDstEscrowTxHash: string;
     try {
-      simulationLog.push(
-        `Attempting to predict DstEscrow address for immutables: ${JSON.stringify(
-          immutablesDst,
-          (k, v) => (typeof v === "bigint" ? v.toString() : v)
-        )}`
-      );
-      actualEvmEscrowAddress = await factoryContract.addressOfEscrowDst(
-        immutablesDst
-      );
-      simulationLog.push(
-        `Predicted EVM DstEscrow Address: ${actualEvmEscrowAddress}`
-      );
-
-      let totalValueToSend = safetyDepositWei;
-      if (swapDetails.counterpartyToken === ethers.ZeroAddress) {
-        totalValueToSend = safetyDepositWei + evmAmountWei;
-      }
-
-      // Enhanced logging for debugging InvalidSafetyDeposit
-      simulationLog.push(
-        `[Debug Safety Deposit] EVM_SAFETY_DEPOSIT (string): "${EVM_SAFETY_DEPOSIT}"`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] swapDetails.counterpartyAmount (string): "${swapDetails.counterpartyAmount}"`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] swapDetails.counterpartyToken: "${
-          swapDetails.counterpartyToken
-        }" (Is Native: ${swapDetails.counterpartyToken === ethers.ZeroAddress})`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] safetyDepositWei (BigInt): ${safetyDepositWei.toString()}`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] evmAmountWei (BigInt): ${evmAmountWei.toString()}`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] totalValueToSend (BigInt for msg.value): ${totalValueToSend.toString()} (${ethers.formatEther(
-          totalValueToSend
-        )} ETH)`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] immutablesDst.safetyDeposit (BigInt): ${immutablesDst.safetyDeposit.toString()}`
-      );
-      simulationLog.push(
-        `[Debug Safety Deposit] immutablesDst.amount (BigInt): ${immutablesDst.amount.toString()}`
-      );
-
-      console.log("[CONSOLE DEBUG] -------------------------------------");
-
       simulationLog.push(`Calling factory.createDstEscrow with arguments:`);
       simulationLog.push(
         `  - Immutables (for DstEscrow): ${JSON.stringify(
@@ -289,17 +289,69 @@ export async function POST(request: Request) {
       simulationLog.push(
         `  - flowHtlcCancellationTimestampBigInt (arg for createDstEscrow): ${flowHtlcCancellationTimestampBigInt.toString()}`
       );
+
+      // Adjust msg.value based on whether it's a native ETH swap or ERC20
+      let transactionValue = safetyDepositWei;
+      if (isNativeEthSwap) {
+        transactionValue = safetyDepositWei + evmAmountWei; // msg.value must cover both for native swaps
+      }
+
       simulationLog.push(
         `  - Transaction Value (msg.value): ${ethers.formatEther(
-          totalValueToSend
-        )} ETH (${totalValueToSend.toString()} wei)`
+          transactionValue
+        )} ETH (${transactionValue.toString()} wei)`
       );
 
-      console.log("creatingDSTEscrow", immutablesDst);
+      // Log timestamp comparison for InvalidCreationTime debugging
+      const latestBlock = await provider.getBlock("latest");
+      if (latestBlock) {
+        simulationLog.push(
+          `Current EVM block timestamp (approx before tx): ${
+            latestBlock.timestamp
+          } (${new Date(latestBlock.timestamp * 1000).toUTCString()})`
+        );
+        simulationLog.push(
+          `Flow Cancellation Timestamp (srcCancellationTimestamp): ${flowHtlcCancellationTimestampBigInt.toString()} (${new Date(
+            Number(flowHtlcCancellationTimestampBigInt) * 1000
+          ).toUTCString()})`
+        );
+        const calculatedEvmDstCancellationTime =
+          latestBlock.timestamp + EVM_DST_CANCELLATION_TIMELOCK_OFFSET;
+        simulationLog.push(
+          `Calculated EVM Dst Cancellation Deadline (approx): ${calculatedEvmDstCancellationTime} (${new Date(
+            calculatedEvmDstCancellationTime * 1000
+          ).toUTCString()})`
+        );
+        simulationLog.push(
+          `(EVM Dst Cancellation Relative Offset from immutables.timelocks: ${EVM_DST_CANCELLATION_TIMELOCK_OFFSET}s)`
+        );
+        if (
+          calculatedEvmDstCancellationTime > flowHtlcCancellationTimestampBigInt
+        ) {
+          simulationLog.push(
+            `CRITICAL CHECK: (EVM timestamp + DstCancelOffset) > FlowCancelTimestamp :: (${latestBlock.timestamp} + ${EVM_DST_CANCELLATION_TIMELOCK_OFFSET}) > ${flowHtlcCancellationTimestampBigInt} :: ${calculatedEvmDstCancellationTime} > ${flowHtlcCancellationTimestampBigInt} :: This evaluates to TRUE. InvalidCreationTime revert is expected.`
+          );
+        } else {
+          simulationLog.push(
+            `CRITICAL CHECK: (EVM timestamp + DstCancelOffset) > FlowCancelTimestamp :: (${latestBlock.timestamp} + ${EVM_DST_CANCELLATION_TIMELOCK_OFFSET}) > ${flowHtlcCancellationTimestampBigInt} :: ${calculatedEvmDstCancellationTime} > ${flowHtlcCancellationTimestampBigInt} :: This evaluates to FALSE. InvalidCreationTime revert is NOT expected due to this specific check.`
+          );
+        }
+      } else {
+        simulationLog.push(
+          "Could not fetch latest block to log timestamp for InvalidCreationTime check."
+        );
+      }
+
+      console.log(
+        "creatingDSTEscrow with immutables:",
+        immutablesDst,
+        "and value:",
+        transactionValue.toString()
+      );
       const tx = await factoryContract.createDstEscrow(
         immutablesDst,
         flowHtlcCancellationTimestampBigInt, // Use the timestamp from the request
-        { value: totalValueToSend }
+        { value: transactionValue } // Adjusted msg.value
       );
       simulationLog.push(`createDstEscrow Tx Sent: ${tx.hash}`);
       const receipt = await tx.wait();
@@ -326,13 +378,16 @@ export async function POST(request: Request) {
       if (
         createdEventLog &&
         createdEventLog.args &&
-        createdEventLog.args.escrow.toLowerCase() !==
-          actualEvmEscrowAddress?.toLowerCase()
+        createdEventLog.args.escrow
       ) {
-        simulationLog.push(
-          `WARNING: Predicted DstEscrow address ${actualEvmEscrowAddress} differs from event address ${createdEventLog.args.escrow}. Using event address.`
-        );
         actualEvmEscrowAddress = createdEventLog.args.escrow;
+        simulationLog.push(
+          `DstEscrow address from event: ${actualEvmEscrowAddress}`
+        );
+      } else {
+        throw new Error(
+          "DstEscrowCreated event not found or escrow address missing in event."
+        );
       }
     } catch (e: unknown) {
       let message = "Unknown error during EVM DstEscrow creation";
@@ -344,14 +399,56 @@ export async function POST(request: Request) {
     simulationLog.push(
       `Counterparty (EVM) lock ON-CHAIN successful. DstEscrow: ${actualEvmEscrowAddress}, TxHash: ${evmDstEscrowTxHash}`
     );
-    await callRelayerApi("", "PUT", {
-      swapId: swapIdFromRequest,
-      action: "CONFIRM_COUNTERPARTY_LOCK",
-      transactionHash: evmDstEscrowTxHash,
-      chain: "EVM",
-      escrowAddress: actualEvmEscrowAddress,
-    });
-    simulationLog.push(`Counterparty (EVM) lock confirmed with Relayer.`);
+
+    // Check current swap state before attempting to confirm counterparty lock
+    const currentSwapStateForConfirmation = await callRelayerApi(
+      `?swapId=${swapIdFromRequest}`,
+      "GET"
+    );
+    simulationLog.push(
+      `Relayer state for swap ${swapIdFromRequest} before CONFIRM_COUNTERPARTY_LOCK: ${currentSwapStateForConfirmation.state}`
+    );
+
+    if (
+      currentSwapStateForConfirmation.state === "AWAITING_COUNTERPARTY_LOCK"
+    ) {
+      simulationLog.push(
+        "Relayer is AWAITING_COUNTERPARTY_LOCK. Confirming EVM lock."
+      );
+      await callRelayerApi("", "PUT", {
+        swapId: swapIdFromRequest,
+        action: "CONFIRM_COUNTERPARTY_LOCK",
+        transactionHash: evmDstEscrowTxHash,
+        chain: "EVM",
+        escrowAddress: actualEvmEscrowAddress,
+      });
+      simulationLog.push(`Counterparty (EVM) lock confirmed with Relayer.`);
+    } else if (
+      currentSwapStateForConfirmation.state === "AWAITING_INITIATOR_WITHDRAWAL"
+    ) {
+      simulationLog.push(
+        `Relayer is already in AWAITING_INITIATOR_WITHDRAWAL state. Skipping CONFIRM_COUNTERPARTY_LOCK update for this run.`
+      );
+      // Ensure actualEvmEscrowAddress and immutablesDst from the current on-chain execution are used for subsequent withdrawal step.
+      // If actualEvmEscrowAddress from this run potentially differs from what relayer might have (e.g. if it's a new escrow for some reason),
+      // this might need more sophisticated handling. For now, we assume the current on-chain action is the source of truth for this execution path.
+      if (
+        actualEvmEscrowAddress !==
+        currentSwapStateForConfirmation.evmContractAddress
+      ) {
+        simulationLog.push(
+          `WARNING: actualEvmEscrowAddress from current execution (${actualEvmEscrowAddress}) ` +
+            `differs from relayer's stored evmContractAddress (${currentSwapStateForConfirmation.evmContractAddress}). ` +
+            `Proceeding with current execution's address.`
+        );
+        // Potentially, you might want to update the relayer with the new actualEvmEscrowAddress if it was re-deployed,
+        // but that's a more complex state reconciliation.
+      }
+    } else {
+      throw new Error(
+        `Relayer in unexpected state ${currentSwapStateForConfirmation.state} before confirming counterparty lock. Expected AWAITING_COUNTERPARTY_LOCK or AWAITING_INITIATOR_WITHDRAWAL.`
+      );
+    }
 
     // 2. Initiator (Flow user) withdraws from Counterparty's (EVM) lock ON-CHAIN
     simulationLog.push(
@@ -439,6 +536,7 @@ export async function POST(request: Request) {
     simulationLog.push(
       "COMPLETE_EVM_SWAP simulation with ON-CHAIN EVM steps completed successfully!"
     );
+    simulationLog.push("Attempting to send success response to client NOW...");
     return NextResponse.json({
       success: true,
       log: simulationLog,

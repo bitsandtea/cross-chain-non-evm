@@ -78,3 +78,48 @@ export async function createFooTokenHtlc(
 
 // Add other Flow transaction functions here as needed
 // e.g., withdrawFromHtlc, refundHtlc, etc.
+
+interface WithdrawFromFooTokenHtlcArgs {
+  secret: string; // The secret to unlock the HTLC
+  htlcDeployerAddress: string; // Address where the HTLC contract is deployed
+  // Add other arguments if the Cadence script requires them, e.g.:
+  // hashOfSecret?: string; // Sometimes used to identify the HTLC
+  // receiverAddress?: string; // The address of the recipient (current signer)
+}
+
+export async function withdrawFromFooTokenHtlc(
+  cadenceCode: string,
+  args: WithdrawFromFooTokenHtlcArgs
+): Promise<string> {
+  console.log("Attempting to withdraw from FooToken HTLC with args:", args);
+
+  if (!args.secret || !args.htlcDeployerAddress) {
+    console.error(
+      "Missing one or more required arguments for HTLC withdrawal."
+    );
+    throw new Error("Missing required arguments for withdrawFromFooTokenHtlc.");
+  }
+
+  try {
+    const transactionId = await fcl.mutate({
+      cadence: cadenceCode,
+      args: (arg: any, t_1: any) => [
+        arg(args.secret, t_1.String),
+        arg(args.htlcDeployerAddress, t_1.Address),
+        // Add other args here if the Cadence script needs them, matching their types
+        // e.g., if hashOfSecret is needed: arg(args.hashOfSecret, t_1.String)
+        // e.g., if receiverAddress is needed: arg(args.receiverAddress, t_1.Address)
+      ],
+      payer: flowSigner,
+      proposer: flowSigner,
+      authorizations: [flowSigner],
+      limit: 999,
+    });
+
+    console.log("Flow HTLC withdrawal transaction sent, ID:", transactionId);
+    return transactionId;
+  } catch (error) {
+    console.error("Error in withdrawFromFooTokenHtlc:", error);
+    throw error;
+  }
+}

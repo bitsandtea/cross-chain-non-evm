@@ -1,24 +1,56 @@
 [
   {
     "inputs": [
-      { "internalType": "uint32", "name": "rescueDelaySrc", "type": "uint32" },
-      { "internalType": "uint32", "name": "rescueDelayDst", "type": "uint32" }
+      {
+        "internalType": "uint32",
+        "name": "rescueDelaySrc",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "rescueDelayDst",
+        "type": "uint32"
+      }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
-  { "inputs": [], "name": "FailedDeployment", "type": "error" },
+  {
+    "inputs": [],
+    "name": "FailedDeployment",
+    "type": "error"
+  },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "balance", "type": "uint256" },
-      { "internalType": "uint256", "name": "needed", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "balance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "needed",
+        "type": "uint256"
+      }
     ],
     "name": "InsufficientBalance",
     "type": "error"
   },
-  { "inputs": [], "name": "InsufficientEscrowBalance", "type": "error" },
-  { "inputs": [], "name": "InvalidCreationTime", "type": "error" },
-  { "inputs": [], "name": "SafeTransferFromFailed", "type": "error" },
+  {
+    "inputs": [],
+    "name": "InsufficientEscrowBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidCreationTime",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SafeTransferFromFailed",
+    "type": "error"
+  },
   {
     "anonymous": false,
     "inputs": [
@@ -38,7 +70,7 @@
         "indexed": false,
         "internalType": "Address",
         "name": "taker",
-        "type": "address"
+        "type": "uint256"
       }
     ],
     "name": "DstEscrowCreated",
@@ -78,14 +110,26 @@
   {
     "inputs": [],
     "name": "ESCROW_DST_IMPLEMENTATION",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "ESCROW_SRC_IMPLEMENTATION",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -93,12 +137,36 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "address" },
-          { "internalType": "Address", "name": "taker", "type": "address" },
-          { "internalType": "Address", "name": "token", "type": "address" },
-          { "internalType": "uint256", "name": "amount", "type": "uint256" },
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hashlock",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "Address",
+            "name": "maker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "taker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "token",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "safetyDeposit",
@@ -116,7 +184,13 @@
       }
     ],
     "name": "addressOfEscrowDst",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -124,12 +198,36 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "address" },
-          { "internalType": "Address", "name": "taker", "type": "address" },
-          { "internalType": "Address", "name": "token", "type": "address" },
-          { "internalType": "uint256", "name": "amount", "type": "uint256" },
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hashlock",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "Address",
+            "name": "maker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "taker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "token",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "safetyDeposit",
@@ -147,7 +245,13 @@
       }
     ],
     "name": "addressOfEscrowSrc",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -155,12 +259,36 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "address" },
-          { "internalType": "Address", "name": "taker", "type": "address" },
-          { "internalType": "Address", "name": "token", "type": "address" },
-          { "internalType": "uint256", "name": "amount", "type": "uint256" },
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hashlock",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "Address",
+            "name": "maker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "taker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "token",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "safetyDeposit",
@@ -191,12 +319,36 @@
     "inputs": [
       {
         "components": [
-          { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "address" },
-          { "internalType": "Address", "name": "taker", "type": "address" },
-          { "internalType": "Address", "name": "token", "type": "address" },
-          { "internalType": "uint256", "name": "amount", "type": "uint256" },
+          {
+            "internalType": "bytes32",
+            "name": "orderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hashlock",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "Address",
+            "name": "maker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "taker",
+            "type": "uint256"
+          },
+          {
+            "internalType": "Address",
+            "name": "token",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
           {
             "internalType": "uint256",
             "name": "safetyDeposit",
