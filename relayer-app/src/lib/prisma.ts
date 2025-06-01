@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../generated/prisma";
 
 // Augment the NodeJS global type with our PrismaClient instance
 declare global {
@@ -15,7 +15,7 @@ if (process.env.NODE_ENV === "production") {
 } else {
   if (!global.prisma) {
     global.prisma = new PrismaClient({
-      log: ["query", "info", "warn", "error"],
+      log: ["error"],
     });
   }
   prismaInstance = global.prisma;

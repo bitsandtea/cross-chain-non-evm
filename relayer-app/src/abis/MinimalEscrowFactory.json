@@ -38,7 +38,7 @@
         "indexed": false,
         "internalType": "Address",
         "name": "taker",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "name": "DstEscrowCreated",
@@ -95,9 +95,9 @@
         "components": [
           { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
           { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "uint256" },
-          { "internalType": "Address", "name": "taker", "type": "uint256" },
-          { "internalType": "Address", "name": "token", "type": "uint256" },
+          { "internalType": "Address", "name": "maker", "type": "address" },
+          { "internalType": "Address", "name": "taker", "type": "address" },
+          { "internalType": "Address", "name": "token", "type": "address" },
           { "internalType": "uint256", "name": "amount", "type": "uint256" },
           {
             "internalType": "uint256",
@@ -126,9 +126,9 @@
         "components": [
           { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
           { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "uint256" },
-          { "internalType": "Address", "name": "taker", "type": "uint256" },
-          { "internalType": "Address", "name": "token", "type": "uint256" },
+          { "internalType": "Address", "name": "maker", "type": "address" },
+          { "internalType": "Address", "name": "taker", "type": "address" },
+          { "internalType": "Address", "name": "token", "type": "address" },
           { "internalType": "uint256", "name": "amount", "type": "uint256" },
           {
             "internalType": "uint256",
@@ -157,9 +157,9 @@
         "components": [
           { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
           { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "uint256" },
-          { "internalType": "Address", "name": "taker", "type": "uint256" },
-          { "internalType": "Address", "name": "token", "type": "uint256" },
+          { "internalType": "Address", "name": "maker", "type": "address" },
+          { "internalType": "Address", "name": "taker", "type": "address" },
+          { "internalType": "Address", "name": "token", "type": "address" },
           { "internalType": "uint256", "name": "amount", "type": "uint256" },
           {
             "internalType": "uint256",
@@ -193,9 +193,9 @@
         "components": [
           { "internalType": "bytes32", "name": "orderHash", "type": "bytes32" },
           { "internalType": "bytes32", "name": "hashlock", "type": "bytes32" },
-          { "internalType": "Address", "name": "maker", "type": "uint256" },
-          { "internalType": "Address", "name": "taker", "type": "uint256" },
-          { "internalType": "Address", "name": "token", "type": "uint256" },
+          { "internalType": "Address", "name": "maker", "type": "address" },
+          { "internalType": "Address", "name": "taker", "type": "address" },
+          { "internalType": "Address", "name": "token", "type": "address" },
           { "internalType": "uint256", "name": "amount", "type": "uint256" },
           {
             "internalType": "uint256",
