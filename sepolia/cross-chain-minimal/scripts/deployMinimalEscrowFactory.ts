@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const RESCUE_DELAY_SRC = 7 * 24 * 60 * 60; // 7 days in seconds
-  const RESCUE_DELAY_DST = 7 * 24 * 60 * 60; // 7 days in seconds
+  const RESCUE_DELAY_SRC = 3600; // 7 days in seconds
+  const RESCUE_DELAY_DST = 7200; // 7 days in seconds
 
   const MinimalEscrowFactory = await ethers.getContractFactory(
     "MinimalEscrowFactory"
