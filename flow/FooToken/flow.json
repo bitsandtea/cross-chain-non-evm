@@ -120,14 +120,8 @@
     }
   },
   "deployments": {
-    "emulator": {
-      "emulator-account": ["FungibleTokenHTLC", "FooToken"]
-    },
     "testnet": {
       "testnet-account": ["MinimalHTLCv2"]
-    },
-    "testnet": {
-      "testnet-account": ["FungibleTokenHTLC", "FooToken"]
     }
   }
 }

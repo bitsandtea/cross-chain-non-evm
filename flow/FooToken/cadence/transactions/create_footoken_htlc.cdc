@@ -23,8 +23,8 @@ transaction(
         let MinimalHTLCv2Contract = getAccount(htlcDeployerAddress)
             .contracts.borrow<&MinimalHTLCv2>(name: "MinimalHTLCv2")
             ?? panic("Could not borrow MinimalHTLCv2 contract reference from ".concat(htlcDeployerAddress.toString()))
-        let newVault <- FooToken.createEmptyVault(vaultType: Type<@FooToken.Vault>())
-        newVault.deposit(from: <- vault.withdraw(amount: amount))
+        // let newVault <- FooToken.createEmptyVault(vaultType: Type<@FooToken.Vault>())
+        // newVault.deposit(from: <- vault.withdraw(amount: amount))
 
         self.actualSignerAddress = signer.address
         let secretBytes: [UInt8] = secret.utf8
@@ -35,7 +35,7 @@ transaction(
             senderAddress: self.actualSignerAddress,
             receiverAddress: receiverAddress,
             tokenSymbol: tokenSymbol,
-            vault: <- newVault,
+            vault: <- vault.withdraw(amount: amount),
             amount: amount,
             hashlock: hashlock,
             timelockTimestamp: timelockTimestamp
